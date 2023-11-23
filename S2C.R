@@ -1,4 +1,4 @@
-#' Numerically stable sinc function
+#' Numerically stable sinc function, \code{sin(x)/x}
 #'
 #' @param x A numeric vector
 #'
@@ -28,14 +28,15 @@ sinc <- function(x) {
   f
 }
 
-#' Title
+#' Folded spectrum
 #'
 #' @param omega
 #' @param S_fun
 #' @param h
 #' @param pointwise
 #' @param n_folds
-#' @param fold If `TRUE`, computes a folded spectrum. If `FALSE`, computes
+#' @param fold If `TRUE`, computes a folded spectrum Stilde. That is, the sum of
+#' If `FALSE`, computes
 #' a truncated spectrum.
 #' @param ...
 #'
@@ -55,18 +56,22 @@ fold_spectrum <- function(omega, S_fun, h, pointwise = TRUE, n_folds = 10,
   }
   k_ <- rep(1, length(h))
   while (!done) {
+    # Shifts the frequencies
     omega_ <- omega + kronecker(
       as.matrix(rep(1, NROW(omega))),
       t(2 * pi * kk[k_] / h)
     )
+    # Scalin g by default is 1
     scaling <- 1
     if (!pointwise) {
       for (d in seq_along(h)) {
         scaling <- scaling * sinc(omega_[, d] * h[d] / 2)^2
       }
     }
+    # Integration step
     S <- S + S_fun(omega_, ...) * scaling
 
+    #Updates for next iteration
     idx <- which(k_ < length(kk))
     if (length(idx) == 0) {
       done <- TRUE
@@ -88,7 +93,7 @@ fold_spectrum <- function(omega, S_fun, h, pointwise = TRUE, n_folds = 10,
   S
 }
 
-#' Title
+#' Shift needed to be able to apply the Fast Fourier tranform
 #'
 #' @param x
 #' @param dim integer vector of dimension extents, suitable for `array()`.
@@ -117,7 +122,7 @@ fftshift <- function(x, dim = length(x)) {
   }
   x
 }
-#' Title
+#' Calculates the covariance function from the spectrum
 #'
 #' @param S
 #' @param dim
@@ -294,6 +299,87 @@ make_omega_sampling <- function(dim, h) {
       seq(-(dim[d] / 2), dim[d] / 2 - 1, by = 1) / (dim[d] / 2) * pi / h[d]
   }
   w
+}
+
+## Code specific to anisotropic implementation
+
+#' H matrix
+#'
+#' @param v A two by two constant vector
+
+#' @return A 2x2 matrix H
+#' @export
+#'
+#' @examples
+#' v <- c(-1,0)
+#' H <-calcH(v)
+
+calcH <- function(v){
+  # Pre-calculate common terms
+  v_magnitude <- sqrt(v[1]^2+v[2]^2)
+  cosh_val <- cosh(v_magnitude)
+  sinh_over_magnitude <- sinh(v_magnitude) / v_magnitude
+
+  # Calculate H
+  H <- matrix(0, nrow = 2, ncol = 2)
+  H[1, ] <- c(cosh_val + sinh_over_magnitude * v[1], sinh_over_magnitude * v[2])
+  H[2, ] <- c(sinh_over_magnitude * v[2], cosh_val - sinh_over_magnitude * v[1])
+  return(as.matrix(H))
+}
+
+#' Spectrum of anisotropic field
+#'
+#' @param v A two by two constant vector
+#' @param logkappa The logarithm of the inverse correlation range
+#' @param omega Frequency in R^2 at which spectrum is calculated
+
+#' @return The spectrum S(omega) of the anisotropic field with parameters (kappa,H )
+#' @export
+#'
+#' @examples
+#' logkappa <- 2
+#' v <- c(1,2)
+#' omega <- c (1,1)
+#' #' S_aniso(v = v, logkappa = logkappa, omega = omega)
+
+S_aniso <- function(logkappa, v, omega) {
+  #Calcuates kappa and H
+  kappa <- exp(logkappa)
+  H <-calcH(v)
+
+  # Calculate omega^T H omega
+  omega_H_omega <- as.numeric(t(omega) %*% H %*% omega)
+
+  # Calculate the spectrum
+  result <- 1 / ((2 * pi)^2) / (kappa^2 + omega_H_omega)^2
+
+  return(result)
+}
+#' Spectrum of anisotropic field applied to matrix of omegas
+#'
+#' @param v A two by two constant vector
+#' @param logkappa The logarithm of the inverse correlation range
+#' @param omega Matrix of size mx2 (w1,...,wm)
+
+#' @return A vector of size n (S(w1),...,S(wm))
+#' Where S is the spectrum of the anisotropic field with parameters (kappa,H )
+#' @export
+#'
+#' @examples
+#' logkappa <- 2
+#' v <- c(1,2)
+#' n <- c(256, 256)
+#' L <- c(1, 1)
+#' omega_ <- make_omega(n, L)
+#' omega <- as.matrix(expand.grid(omega_))
+#' S_aniso_matrix(logkappa=logkappa, v=v, omega=omega)
+
+
+
+S_aniso_matrix <- function(logkappa, v, omega) {
+  # Apply S_aniso to each row of omega_matrix
+  new <-function(omega) S_aniso(logkappa=logkappa, v=v, omega=omega)
+  apply(omega, 1, new)
 }
 
 

@@ -1,0 +1,350 @@
+---
+  title: "Spectral representation and discretisation"
+author: "Finn Lindgren, Liam Llamazares"
+date: "September 2021, with major updates May 2022"
+output:
+  pdf_document: default
+html_document: default
+bibliography: spde10years-combined.bib
+header-includes:
+  - \usepackage{times,amsmath,amssymb,gensymb,bm}
+- \newcommand{\RR}{\mathbb{R}}
+- \newcommand{\ZZ}{\mathbb{Z}}
+- \newcommand{\s}{\bm{s}}
+- \newcommand{\mmd}{\mathrm{d}}
+- \newcommand{\md}{\,\mmd}
+- \newcommand{\wt}[1]{\widetilde{#1}}
+  - \newcommand{\ol}[1]{\overline{#1}}
+    - \newcommand{\wh}[1]{\widehat{#1}}
+      - \newcommand{\mc}[1]{\mathcal{#1}}
+        - \newcommand{\pN}{\textsf{N}}
+        editor_options:
+          chunk_output_type: console
+        ---
+
+          ```{r setup, include=FALSE}
+        knitr::opts_chunk$set(echo = TRUE, cache=FALSE)
+        suppressPackageStartupMessages(library(RColorBrewer))
+        suppressPackageStartupMessages(library(viridis))
+        suppressPackageStartupMessages(library(tidyverse))
+        suppressPackageStartupMessages(library(ggplot2))
+        suppressPackageStartupMessages(library(patchwork))
+        ```
+        All of the below discussion is due to Finn Lindgren, the specific spectral distributions chosen in the 2D-example and their plotting are due to Liam Llamazares.
+
+        ## Continuous domains and finite dimensional representations via Fourier theory
+
+        When the correctly folded spectral density for the discrete space process is used, the approximation in the direct spectral representation comes from the frequency resolution, not from frequency truncation.
+
+        The exact spectral representation of the covariance evaluated on a discrete (infinite) lattice is easily derived from the continuous domain representation
+        $$
+          \begin{aligned}
+        R(\s) &= \int_{\RR^d} \exp(i\bm{\omega}\cdot\s) S(\bm{\omega}) \md\bm{\omega} .
+        \end{aligned}
+        $$
+          For simplicity, assume the same lattice spacing $h$ in each direction. The stationary covariance function $R(\s)$ evaluated at lattice points $\bm{k} h$, $k\in\ZZ^d$ is given by
+        $$
+          \begin{aligned}
+        R(\bm{j}h) &= \int_{\RR^d} \exp(i\bm{\omega}\cdot\bm{j} h) S(\bm{\omega}) \md\bm{\omega} \\
+        &= \int_{[-\pi/h,\pi/h)^d} \sum_{\bm{k}\in\ZZ^d} \exp(i(\bm{\omega} + 2\pi \bm{k}/h) h \bm{j})
+        S(\bm{\omega} + 2\pi \bm{k}/h) \md\bm{\omega}
+        \\
+        &= \int_{[-\pi/h,\pi/h)^d} \exp(i \bm{\omega} \cdot \bm{j} h)
+        \wt{S}(\bm{\omega})
+        \md\bm{\omega}, \quad \bm{j}\in \ZZ^d
+        \end{aligned}
+        $$
+          where
+        $$
+          \begin{aligned}
+        \wt{S}(\bm{\omega}) &=\sum_{\bm{k}\in\ZZ^d} S(\bm{\omega} + 2\pi \bm{k}/h),
+        \quad \bm{\omega}\in [-\pi/h,\pi/h)^d
+\end{aligned}
+$$
+  If instead the spatial discretisation should be interpreted as the \emph{cell averages} (which is the more usual case for PDE discretisations and e.g. satellite data, rather than pointwise values), the spectrum is altered by a multiplicative frequency
+filter with a squared sinc function:
+  $$
+  \begin{aligned}
+\wt{S}(\bm{\omega}) &=\sum_{\bm{k}\in\ZZ^d} S(\bm{\omega} + 2\pi \bm{k}/h)
+\prod_{l=1}^d
+\left\{
+  \frac{
+    \sin[(\omega_l + 2\pi k_l/h) h / 2]
+  }{
+    (\omega_l + 2\pi k_l/h) h / 2
+  }
+  \right\}^2,
+\quad \bm{\omega}\in [-\pi/h,\pi/h)^d .
+\end{aligned}
+$$
+
+
+  ### Sampling, in theory
+
+  According to the spectral representation theory for processes with continuous
+spectra, we have
+$$
+  \begin{aligned}
+x(\s) &= \int_{\RR^d} \exp(i\bm{\omega}\cdot\s) S(\bm{\omega})^{1/2} \md Z(\bm{\omega}),
+\quad \s\in\RR^d ,
+\end{aligned}
+$$
+  where where $\mmd Z(-\bm{\omega})=\ol{\mmd Z(\bm{\omega})}$, $\textsf{Cov}(\mmd Z(\bm{\omega}),\mmd Z(\bm{\omega}'))= \delta(\bm{\omega}-\bm{\omega}')\md\bm{\omega}$ for $\bm{\omega}\in\RR^d$.
+
+                                                                             With the above theory, for sampling, the integral again reduces to a finite domain,
+                                                                             but one needs to construct a spectral white noise process
+                                                                             $\mmd Z(\bm{\omega})$ with complex conjugate symmetry:
+                                                                               \begin{align*}
+                                                                             x(\bm{j}h)
+                                                                             &= \int_{[-\pi/h,\pi/h)^d} \exp(i \bm{\omega} \cdot \bm{j} h)
+                                                                             \wt{S}(\bm{\omega})^{1/2} \md Z(\bm{\omega}), \quad \bm{j}\in \ZZ^d,
+                                                                             \end{align*}
+                                                                             where $\mmd Z(-\bm{\omega})=\ol{\mmd Z(\bm{\omega})}$, $\textsf{Cov}(\mmd Z(\bm{\omega}),\mmd Z(\bm{\omega}'))= \delta(\bm{\omega}-\bm{\omega}')\md\bm{\omega}$ for $\bm{\omega}\in [-\pi/h,\pi/h)^d$.
+                                                                             This can in principle be discretised with a
+                                                                             lattice of frequencies in much the same way as a basic integral approximation
+                                                                             method that can be used to compute the deterministic integral for the covariance function,
+                                                                             with noise variances equal to the cell area/volume of each frequency lattice point.
+                                                                             However, the complex conjugacy can be tricky to work with in practice. In the next section
+                                                                             we will solve this issue, and provide a fast computational method.
+
+                                                                             ## Practical numerical evaluation with FFT
+
+                                                                             Above we let the spacings $h$ be the same in all dimensions. For greater generality,
+                                                                             we now define discrete spacings $\bm{h}=\{h_1,\dots,h_d\}$.
+                                                                             Let the number of evaluation points in each dimension be given by
+                                                                             $\bm{n}=\{n_1,\dots,n_d\}$. For the cell interpretation of the spatial
+                                                                             discretisation, the domain with for the different directions are given by
+                                                                             $\bm{L}=\bm{n}\odot\bm{h}$.
+                                                                             Define the continuous spectral domain
+                                                                             $\mc{I}=\prod_{l=1}^d [-\pi/h_l,\pi/h_l)$, a semi-symmetric index space as
+$\mc{K}_0=\prod_{l=1}^d \{-n_l/2,\dots,-1,0,1,2,\dots,n_l/2-1\}$, and
+and a non-negative index space
+$\mc{K}_+=\prod_{l=1}^d \{0,1,2,\dots,n_l-1\}$, so that if $\bm{k}\in\mc{K}_0$,
+then $\bm{k}\bmod \bm{n}\in\mc{K}_+$.
+
+We want to evaluate
+$$
+  \begin{aligned}
+x(\bm{j}\odot\bm{h}) &= \int_{\mc{I}} \exp(i\bm{\omega}\cdot\bm{j} \odot\bm{h}) \wh{x}(\bm{\omega}) \md\bm{\omega}
+\end{aligned}
+$$
+  for all $\bm{j}\in\bm{K}_+$ or all $\bm{j}\in\bm{K}_0$.
+
+The (inverse) FFT in `fftwtools` is a by default unnormalised sum,
+$$
+  \begin{aligned}
+x_{\bm{j}} &= \sum_{\bm{k}\in\mc{K}_+} \exp(i 2\pi\bm{k}\cdot\bm{j} \oslash \bm{n}) \wh{x}_{\bm{k}}
+,\quad\bm{j}\in\mc{K}_+ .
+\end{aligned}
+$$
+  so we need to make a Riemann sum approximation of the integral and write it on this form.
+
+Define a discretisation of the $\bm{\omega}$ space via
+$$
+  (\bm{\omega}_{\bm{k}})_l = \frac{\pi k_l}{h_l n_l/2} = \frac{2\pi k_l}{h_l n_l}, \quad k_l = -n_l/2,\dots,n_l/2-1
+$$
+  Then
+$$
+  \begin{aligned}
+x(\bm{j}\odot\bm{h}) &\approx \sum_{\{k_l=-n_l/2\}}^{\{n_l/2-1\}} \exp(i2\pi\bm{k}\cdot\bm{j} \oslash \bm{n})
+\wh{x}(2\pi\bm{k}\oslash(\bm{n}\odot\bm{h})) \prod_{l=1}^d \frac{2\pi}{h_l n_l}
+\end{aligned}
+$$
+  For the negative $\bm{k}$ indices, we can add a shift by $\bm{n}$ without altering the result (if we also adjust $\wh{x}$ accordingly), since $\exp(i2\pi\bm{n}\cdot\bm{j}\oslash\bm{n})=\exp(i2\pi\bm{j})=1$ for all $\bm{j}$.
+We can therefore compute an approximation of the integral by letting
+$$
+  \wh{x}_{\bm{k} \bmod \bm{n}}=
+  \wh{x}(2\pi\bm{k}\oslash(\bm{n}\odot\bm{h}))\prod_{l=1}^d\frac{2\pi}{h_l n_l},
+\quad\bm{k}\in\mc{K}_0.
+$$
+
+
+  ### Covariance evaluation
+
+  To compute an approximation of the covariance function, we define
+$$
+  \sigma_{\bm{k}}^2 = \wt{S}(2\pi\bm{k}\oslash(\bm{n}\odot\bm{h})) \prod_{l=1}^d\frac{2\pi}{h_l n_l},
+\quad \bm{k}\in\mc{K}_0,
+$$
+  and let
+$$
+  \wh{x}_{\bm{k} \bmod \bm{n}} = \sigma_{\bm{k}}^2,
+\quad \bm{k}\in\mc{K}_0 .
+$$
+  Then $R(\bm{j}\odot\bm{h})\approx x_{\bm{j}\bmod\bm{n}}$ for $\bm{j}\in\mc{K}_0$.
+
+### Process/field simulation
+
+For simulation, the relation $\mmd Z(-\bm{\omega})=\ol{\mmd Z(\bm{\omega})}$ makes
+direct construction of the discretised integrand difficult, as we need to keep
+track of the complex conjugate symmetry. A practical alternative can be found in
+Appendix B.4 of [@LindgrenStocProc], where it is shown that if the complex conjugate
+symmetry is ignored, the result of the (inverse) Fourier transform gives
+a sample from the process as its real part, and a corresponding sample from the
+process _envelope_ as the norms of the absolute values.
+
+Let $\wh{z}_{\bm{k}}$ be iid complex valued $\pN(0,1)$ random variables, and let
+$$
+  \wh{x}_{\bm{k} \bmod \bm{n}}=
+  \wh{z}_{\bm{k}} \sigma_{\bm{k}},
+\quad \bm{k}\in\mc{K}_0 .
+$$
+  Then $x(\bm{j}\odot\bm{h})=\Re[x_{\bm{j}}]$ is an approximate sample from the process model,
+and $|x_{\bm{j}}|$ is the corresponding sample of the process envelope, for
+$\bm{j}\in\mc{K}_+$.
+
+Check: is there a hidden cyclic boundary condition built in to this method? If so,
+is the first half of the process correct?
+
+  ### A note on resolution
+
+  When choosing the frequency resolution for the Fourier integral discretisation,
+we are constrained by the desired space resolution $\bm{h}$, but we are
+free to choose the number of intervals in each dimension, $\bm{n}$. However,
+as a by-product of the FFT construction, this also dictates that the number of evaluation
+points in space will _also_ be $\bm{n}$. Thus, even if we only desire to evaluate
+the covariance or simulation at a small number of spatial points, we still need
+to use enough discretisation points to obtain an accurate Fourier integral approximation.
+In practice, this means that we might only use a small portion of the computed results.
+
+
+## Transformation code
+
+```{r S2C,code=readLines("S2C.R")}
+source("S2C.R")
+```
+
+
+## 2D example,
+
+```{r}
+#Code below written by Liam Llamazares based on initial version by Finn Lindgren
+S_fun1 <- function(omega) {#Two peaks
+  v1<-cbind(rep(37,length(omega[,1])),rep(75,length(omega[,1])))
+  v2<--v1
+  1/(rowSums((omega-v1)^2)* rowSums((omega-v2)^2)+40^4)^2*10^11
+}
+
+S_fun2 <- function(omega) {  #Spherical
+  v1<-cbind(rep(37,length(omega[,1])),rep(75,length(omega[,1])))
+  1/((rowSums(omega^2-v1^2))^2+50^4)^2*10^11
+}
+S_fun3 <- function(omega) {#Rescaled Matern with kappa^2=100, alpha=1, sigma^2=10^-11
+  1/(rowSums(omega^2)+7000)^4*10^13
+}
+# S_fun2 <- S_fun3
+# S_fun1 <- S_fun3
+# S_fun2<-S_fun1
+# S_fun3<-S_fun1
+```
+```{r}
+n <- c(256, 256)
+L <- c(1, 1)
+h <- L / n
+x_ <- make_x(n, L)
+omega_ <- make_omega(n, L)
+omega <- as.matrix(expand.grid(omega_))
+S_truncated <- S_fun1(omega = omega)
+S_folded <- S_fun2(omega = omega)
+S_folded_cell <- S_fun3(omega = omega)
+```
+
+```{r}
+S_df <-
+  cbind(
+    as.data.frame(as.matrix(expand.grid(omega_))),
+    data.frame(
+      Two_peaks = S_truncated,
+      Spherical = S_folded,
+      Matern = S_folded_cell
+    )
+  ) %>%
+  pivot_longer(
+    cols = c(Two_peaks, Spherical, Matern),
+    names_to = "Type", values_to = "Value"
+  )
+
+C_df <-
+  cbind(
+    as.data.frame(as.matrix(expand.grid(x_))),
+    data.frame(
+      Two_peaks = as.vector(S2C(S_truncated, n, h)),
+      Spherical = as.vector(S2C(S_folded, n, h)),
+      Matern = as.vector(S2C(S_folded_cell, n, h))
+    )
+  ) %>%
+  pivot_longer(
+    cols = c("Two_peaks", "Spherical", "Matern"),
+    names_to = "Type", values_to = "Value"
+  )
+```
+
+```{r}
+ggplot(S_df) +
+  geom_raster(aes(w1, w2, fill = Value)) +
+  scale_fill_gradientn(colours=brewer.pal(7,"Reds"))+
+  # scale_fill_viridis(option="inferno")+
+  coord_equal()+
+  facet_wrap(vars(Type),nrow=1) +
+  xlab("omega1") + ylab("omega2") +
+  labs(fill = "Spectrum")
+ggplot(C_df) +
+  geom_raster(aes(x1, x2, fill = Value)) +
+  scale_fill_gradientn(colours=c("#0000FFFF","#FFFFFFFF","#FF0000FF"),limits=c(-30, 30))+
+  coord_equal()+
+  facet_wrap(vars(Type),nrow =1) +
+  xlab("u1") + ylab("u2") +
+  labs(fill = "Covariance")
+```
+
+
+
+
+```{r}
+S_df %>% group_by(Type) %>% summarise(N = sum(Value > 0))
+```
+```{r}
+n <- c(256, 256)
+L <- c(1, 1)
+h <- L / n
+x_ <- make_x_sampling(n, L)
+omega_ <- make_omega_sampling(n, L)
+omega <- as.matrix(expand.grid(omega_))
+S_truncated <- S_fun1(omega = omega)
+S_folded <- S_fun2(omega = omega)
+S_folded_cell <- S_fun3(omega = omega)
+```
+
+```{r}
+C_df <-
+  cbind(
+    as.data.frame(as.matrix(expand.grid(x_))),
+    data.frame(
+      Two_peaks = as.vector(S2sample(S_truncated, n, h)),
+      Spherical = as.vector(S2sample(S_folded, n, h)),
+      Matern = as.vector(S2sample(S_folded_cell, n, h))
+    )
+  ) %>%
+  pivot_longer(
+    cols = c("Two_peaks", "Spherical", "Matern"),
+    names_to = "Type", values_to = "Value"
+  )
+```
+
+```{r}
+ggplot(C_df) +
+  coord_equal()+
+  geom_raster(aes(x1, x2, fill = Value)) +
+  scale_fill_gradientn(colours=c("#0000FFFF","#FFFFFFFF","#FF0000FF"),limits=c(-20, 20))+
+  facet_wrap(vars(Type),nrow =1) +
+  xlab("u1") + ylab("u2") +
+  labs(fill = "Sample")
+```
+
+## References
+
+Note: the theory discussed above follows from the materials found in, among many other places @LindgrenStocProc, ..., and @Cramer1967. The materials in the first two books are later revisions of older teaching materials, and the third is a reprint of the 1967 original:
+
+  * Georg Lindgren, Holger Rootzen, Maria Sandsten (2013),
+_Stationary Stochastic Processes for Scientists and Engineers_.
+Chapman and Hall
