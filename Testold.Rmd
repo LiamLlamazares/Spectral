@@ -219,23 +219,14 @@ source("S2C.R")
 
 ```{r}
 #Code below written by Liam Llamazares based on initial version by Finn Lindgren
-S_fun1 <- function(omega) {#Two peaks
-  v1<-cbind(rep(37,length(omega[,1])),rep(75,length(omega[,1])))
-  v2<--v1
-  1/(rowSums((omega-v1)^2)* rowSums((omega-v2)^2)+40^4)^2*10^11
-}
+logkappa <- 0
+v1 <- c(0.001,0)
+v2 <- c(1,0)
+v3 <- c(-1,0)
 
-S_fun2 <- function(omega) {  #Spherical
-  v1<-cbind(rep(37,length(omega[,1])),rep(75,length(omega[,1])))
-  1/((rowSums(omega^2-v1^2))^2+50^4)^2*10^11
-}
-S_fun3 <- function(omega) {#Rescaled Matern with kappa^2=100, alpha=1, sigma^2=10^-11
-  1/(rowSums(omega^2)+7000)^4*10^13
-}
-# S_fun2 <- S_fun3
-# S_fun1 <- S_fun3
-# S_fun2<-S_fun1
-# S_fun3<-S_fun1
+S_fun1 <- function(omega) S_aniso_matrix(logkappa=logkappa, v=v1, omega=omega)
+S_fun2 <- function(omega) S_aniso_matrix(logkappa=logkappa, v=v2, omega=omega)
+S_fun3 <- function(omega) S_aniso_matrix(logkappa=logkappa, v=v3, omega=omega)
 ```
 ```{r}
 n <- c(256, 256)
@@ -244,9 +235,9 @@ h <- L / n
 x_ <- make_x(n, L)
 omega_ <- make_omega(n, L)
 omega <- as.matrix(expand.grid(omega_))
-S_truncated <- S_fun1(omega = omega)
-S_folded <- S_fun2(omega = omega)
-S_folded_cell <- S_fun3(omega = omega)
+S_1 <- S_fun1(omega = omega)
+S_2 <- S_fun2(omega = omega)
+S_3 <- S_fun3(omega = omega)
 ```
 
 ```{r}
@@ -254,13 +245,13 @@ S_df <-
   cbind(
     as.data.frame(as.matrix(expand.grid(omega_))),
     data.frame(
-      Two_peaks = S_truncated,
-      Spherical = S_folded,
-      Matern = S_folded_cell
+      s_1 = S_1,
+      s_2 = S_2,
+      s_3 = S_3
     )
   ) %>%
   pivot_longer(
-    cols = c(Two_peaks, Spherical, Matern),
+    cols = c(s_1, s_2, s_3),
     names_to = "Type", values_to = "Value"
   )
 
@@ -268,13 +259,13 @@ C_df <-
   cbind(
     as.data.frame(as.matrix(expand.grid(x_))),
     data.frame(
-      Two_peaks = as.vector(S2C(S_truncated, n, h)),
-      Spherical = as.vector(S2C(S_folded, n, h)),
-      Matern = as.vector(S2C(S_folded_cell, n, h))
+      s_1 = as.vector(S2C(S_1, n, h)),
+      s_2 = as.vector(S2C(S_2, n, h)),
+      s_3 = as.vector(S2C(S_3, n, h))
     )
   ) %>%
   pivot_longer(
-    cols = c("Two_peaks", "Spherical", "Matern"),
+    cols = c("s_1", "s_2", "s_3"),
     names_to = "Type", values_to = "Value"
   )
 ```
@@ -290,7 +281,7 @@ ggplot(S_df) +
   labs(fill = "Spectrum")
 ggplot(C_df) +
   geom_raster(aes(x1, x2, fill = Value)) +
-  scale_fill_gradientn(colours=c("#0000FFFF","#FFFFFFFF","#FF0000FF"),limits=c(-30, 30))+
+  scale_fill_gradientn(colours=brewer.pal(7,"Reds"))+
   coord_equal()+
   facet_wrap(vars(Type),nrow =1) +
   xlab("u1") + ylab("u2") +
@@ -310,9 +301,9 @@ h <- L / n
 x_ <- make_x_sampling(n, L)
 omega_ <- make_omega_sampling(n, L)
 omega <- as.matrix(expand.grid(omega_))
-S_truncated <- S_fun1(omega = omega)
-S_folded <- S_fun2(omega = omega)
-S_folded_cell <- S_fun3(omega = omega)
+S_1 <- S_fun1(omega = omega)
+S_2 <- S_fun2(omega = omega)
+S_3 <- S_fun3(omega = omega)
 ```
 
 ```{r}
@@ -320,26 +311,50 @@ C_df <-
   cbind(
     as.data.frame(as.matrix(expand.grid(x_))),
     data.frame(
-      Two_peaks = as.vector(S2sample(S_truncated, n, h)),
-      Spherical = as.vector(S2sample(S_folded, n, h)),
-      Matern = as.vector(S2sample(S_folded_cell, n, h))
+      s_1 = as.vector(S2sample(S_1, n, h)),
+      s_2 = as.vector(S2sample(S_2, n, h)),
+      s_3 = as.vector(S2sample(S_3, n, h))
     )
   ) %>%
   pivot_longer(
-    cols = c("Two_peaks", "Spherical", "Matern"),
+    cols = c("s_1", "s_2", "s_3"),
     names_to = "Type", values_to = "Value"
   )
 ```
 
+## Sampling example
+
 ```{r}
-ggplot(C_df) +
-  coord_equal()+
-  geom_raster(aes(x1, x2, fill = Value)) +
-  scale_fill_gradientn(colours=c("#0000FFFF","#FFFFFFFF","#FF0000FF"),limits=c(-20, 20))+
-  facet_wrap(vars(Type),nrow =1) +
-  xlab("u1") + ylab("u2") +
-  labs(fill = "Sample")
+n_sampling <- n * 2
+x_ <- make_x_sampling(n_sampling, h)
+omega_ <- make_omega_sampling(n_sampling, h)
+omega <- as.matrix(expand.grid(omega_))
+S_truncated <- S_fun(omega = omega)
+S_folded <- fold_spectrum(omega = omega, S_fun = S_fun, h)
+S_folded_cell <- fold_spectrum(omega = omega, S_fun = S_fun, h, pointwise = FALSE)
+samples_df <-
+    cbind(
+      as.data.frame(as.matrix(expand.grid(x_))),
+      data.frame(
+        Truncated = as.vector(S2sample(S_truncated, n_sampling, h, seed = 123L)),
+        Folded = as.vector(S2sample(S_folded, n_sampling, h, seed = 123L)),
+        "Folded_cell" = as.vector(S2sample(S_folded_cell, n_sampling, h, seed = 123L))
+      )
+    ) %>%
+      pivot_longer(
+        cols = c("Truncated", "Folded", "Folded_cell"),
+        names_to = "Type", values_to = "Value"
+      )
 ```
+
+```{r}
+ggplot(samples_df %>% filter(x1 < L), aes(x1)) +
+  geom_line(aes(y = Re(Value), col = Type, lty="Real part")) +
+  geom_line(aes(y = Im(Value), col = Type, lty="Imag part")) +
+  coord_cartesian(xlim = c(0, L)) +
+  xlab("x") + ylab("Sample")
+```
+(for long correlation range, the three versions are superimposed, since they used the same random seed, and the spectra are almost identical even after folding/truncation)
 
 ## References
 
