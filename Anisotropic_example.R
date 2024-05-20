@@ -5,8 +5,8 @@ suppressPackageStartupMessages(library(patchwork))
 suppressPackageStartupMessages(library(RColorBrewer))
 logkappa <- 0
 
-# Defining vectors for anisotopy
-v1 <- c(0.001, 0) # Isotropic matern
+# Defining vectors for anisotropy
+v1 <- c(0.001, 0) # Isotropic Matern
 v2 <- c(1, 0) # Anisotropic
 v3 <- c(-1, 0)
 
@@ -39,7 +39,7 @@ S_fun3 <- function(omega) {
 
 # Defining discretisation points
 n <- c(1024, 1024)
-L <- c(12, 12)
+L <- c(10, 10)
 h <- L / n
 x_ <- make_x(n, L)
 omega_ <- make_omega(n, L)
@@ -97,21 +97,21 @@ p <- ggplot(C_df) +
     limits = c(min(C_df$Value), max(abs(C_df$Value)))
   ) +
   facet_wrap(vars(Type), ncol = 3, as.table = FALSE) +
-  labs(x = expression(x[1]), y = expression(x[2]), fill = "Covariance") +
+  labs(x = expression(x[1]), y = expression(x[2]), fill = "Covariance") + # create facets
+  coord_equal() +
   theme(
-    text = element_text(size = txt_size),
-    legend.key.height = unit(1.25, "cm"),
-    strip.text = element_text(color = NA)
-  ) +
-  scale_x_continuous(breaks = c(-5, 0, 5)) +
-  scale_y_continuous(breaks = c(-5, 0, 5))
+    text = element_text(size = txt_size), plot.margin = unit(c(0, 0, 0, 0), units = "inches"),
+    strip.text = element_blank(), legend.key.height = unit(1.5, "cm")
+  )+
+  scale_x_continuous(breaks = c(-4, 0, 4)) +
+  scale_y_continuous(breaks = c(-4, 0, 4))
 p
 ggsave(
   "Images/Spectral_covariance.pdf",
   p,
-  width = 15,
   height = 5,
-  dpi = 300
+  dpi = 300,
+  width = 15.25
 )
 
 
@@ -141,7 +141,7 @@ sample_3 <- S2sample(
 )
 
 # Calculate spatial grid and assign samples to their location
-x_ <- make_x_sampling(n, h)
+x_ <- lapply(make_x_sampling(n, h), function(x) x-5)
 samples_df <-
   cbind(
     as.data.frame(as.matrix(expand.grid(x_))),
@@ -166,19 +166,20 @@ p_sample <- ggplot(samples_df) +
     colours = c("#0000FFFF", "#FFFFFFFF", "#FF0000FF"),
     limits = c(-max(abs(Re(samples_df$Value))), max(abs(Re(samples_df$Value))))
   ) +
-  scale_x_continuous(breaks = c(0, 5,10)) +
-  scale_y_continuous(breaks = c( 0, 5,10)) +
+  scale_x_continuous(breaks = c(-4, 0,4)) +
+  scale_y_continuous(breaks = c( -4, 0,4)) +
   facet_wrap(vars(Type), ncol = 3, as.table = FALSE) +
   labs(x = expression(x[1]), y = expression(x[2])) +
+  coord_equal() +
   theme(
-    text = element_text(size = txt_size),
-    legend.key.height = unit(1.25, "cm")
+    text = element_text(size = txt_size), plot.margin = unit(c(0, 0, 0, 0), units = "inches"),
+    strip.text = element_blank(), legend.key.height = unit(1.5, "cm")
   )
 p_sample
 ggsave(
   "Images/Spectral_sample_u.pdf",
   p_sample,
-  width = 15,
   height = 5,
+  width = 15.25,
   dpi = 300
 )
