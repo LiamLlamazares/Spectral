@@ -333,7 +333,7 @@ calcH <- function(v){
 #' @param logkappa The logarithm of the inverse correlation range
 #' @param omega Frequency in R^2 at which spectrum is calculated
 
-#' @return The spectrum S(omega) of the anisotropic field with parameters (kappa,H )
+#' @return The spectrum S(omega) of the anisotropic field with parameters (kappa,H,sigma )
 #' @export
 #'
 #' @examples
@@ -342,7 +342,7 @@ calcH <- function(v){
 #' omega <- c (1,1)
 #' #' S_aniso(v = v, logkappa = logkappa, omega = omega)
 
-S_aniso <- function(logkappa, v, omega) {
+S_aniso <- function(logkappa, v,sigma, omega) {
   #Calcuates kappa and H
   kappa <- exp(logkappa)
   H <-calcH(v)
@@ -351,7 +351,7 @@ S_aniso <- function(logkappa, v, omega) {
   omega_H_omega <- as.numeric(t(omega) %*% H %*% omega)
 
   # Calculate the spectrum
-  result <- 1 / ((2 * pi)^2) / (kappa^2 + omega_H_omega)^2
+  result <- 4*pi*kappa*sigma^2 / ((2 * pi)^2) / (kappa^2 + omega_H_omega)^2
 
   return(result)
 }
@@ -376,9 +376,9 @@ S_aniso <- function(logkappa, v, omega) {
 
 
 
-S_aniso_matrix <- function(logkappa, v, omega) {
+S_aniso_matrix <- function(logkappa, v, omega, sigma =1) {
   # Apply S_aniso to each row of omega_matrix
-  new <-function(omega) S_aniso(logkappa=logkappa, v=v, omega=omega)
+  new <-function(omega) S_aniso(logkappa=logkappa, v=v, sigma, omega=omega)
   apply(omega, 1, new)
 }
 
